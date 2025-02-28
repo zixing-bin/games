@@ -1,1 +1,2191 @@
-初始数据防御-服务器保卫战代码第一版
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据防御 - 服务器保卫战</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #0a0a1a;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            width: 800px;
+            height: 600px;
+            margin: 20px auto;
+            position: relative;
+            background-color: #111;
+            border: 2px solid #33a;
+            box-shadow: 0 0 20px #33a;
+            overflow: hidden;
+        }
+        
+        #server {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            /* transform: translate(-50%, -50%); */
+            width: 100px;
+            height: 150px;
+            background: linear-gradient(to bottom, #444, #222);
+            border: 2px solid #0f0;
+            box-shadow: 0 0 10px #0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .server-light {
+            width: 10px;
+            height: 10px;
+            background-color: #0f0;
+            border-radius: 50%;
+            margin: 5px;
+            animation: blink 1s infinite;
+        }
+        
+        .firewall {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border: 2px dashed #0ff;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: rotate 20s linear infinite;
+        }
+        
+        .hacker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: #f00;
+            border-radius: 50%;
+            z-index: 10;
+            /* transition: transform 0.3s ease; */
+        }
+        
+        .hacker.elite {
+            background-color: #f80;
+            width: 25px;
+            height: 25px;
+            box-shadow: 0 0 10px #f80;
+        }
+        
+        .hacker.boss {
+            background-color: #f0f;
+            width: 35px;
+            height: 35px;
+            box-shadow: 0 0 20px #f0f;
+            animation: pulse 1s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from { box-shadow: 0 0 10px #f0f; }
+            to { box-shadow: 0 0 30px #f0f; }
+        }
+        
+        .defense {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background-color: #0f0;
+            border-radius: 50%;
+            z-index: 5;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        
+        .defense-range {
+            position: absolute;
+            border: 1px dashed rgba(0, 255, 0, 0.3);
+            border-radius: 50%;
+            z-index: 4;
+            pointer-events: none;
+        }
+        
+        .defense.tier2 {
+            background-color: #0ff;
+            transform: scale(1.2);
+        }
+        
+        .defense.tier3 {
+            background-color: #00f;
+            transform: scale(1.4);
+            box-shadow: 0 0 10px #00f;
+        }
+        
+        .defense-effect {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: rgba(0, 255, 0, 0.7);
+            border-radius: 50%;
+            z-index: 6;
+            animation: expand 0.5s forwards;
+            pointer-events: none;
+        }
+        
+        @keyframes expand {
+            from { transform: scale(0); opacity: 1; }
+            to { transform: scale(3); opacity: 0; }
+        }
+        
+        .data-packet {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #0f0;
+            border-radius: 2px;
+            z-index: 7;
+            animation: data-glow 1s infinite alternate;
+        }
+        
+        @keyframes data-glow {
+            from { box-shadow: 0 0 3px #0f0; }
+            to { box-shadow: 0 0 8px #0f0; }
+        }
+        
+        #controls {
+            margin: 20px auto;
+            width: 800px;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+        }
+        
+        .control-btn {
+            padding: 10px 20px;
+            background-color: #224;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            margin: 5px;
+            position: relative;
+        }
+        
+        .control-btn:hover {
+            background-color: #336;
+            transform: translateY(-2px);
+        }
+        
+        .control-btn:active {
+            transform: translateY(1px);
+        }
+        
+        .control-btn:disabled {
+            background-color: #333;
+            color: #777;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #000;
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 5px;
+            white-space: nowrap;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            font-size: 12px;
+            width: 200px;
+            z-index: 100;
+        }
+        
+        .control-btn:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        #defense-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #33a;
+            display: none;
+        }
+        
+        .defense-option {
+            margin: 5px 0;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 3px;
+            transition: background-color 0.3s;
+        }
+        
+        .defense-option:hover {
+            background-color: #224;
+        }
+        
+        .defense-option.selected {
+            background-color: #336;
+            border: 1px solid #0ff;
+        }
+        
+        #defense-info {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #0ff;
+        }
+        
+        #stats {
+            width: 800px;
+            margin: 20px auto;
+            display: flex;
+            justify-content: space-between;
+            background-color: #224;
+            padding: 10px;
+            border-radius: 5px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-box {
+            padding: 5px 10px;
+            background-color: #112;
+            border-radius: 3px;
+            margin: 2px;
+            font-family: 'Courier New', monospace;
+            color: #0f0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .stat-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        
+        #message {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: #ff0;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 5px #ff0;
+            z-index: 50;
+        }
+        
+        #message-log {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 300px;
+            max-height: 100px;
+            overflow-y: auto;
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1px solid #33a;
+            border-radius: 5px;
+            padding: 5px;
+            font-size: 12px;
+            z-index: 50;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px;
+            border-bottom: 1px solid #224;
+        }
+        
+        .log-entry.warning {
+            color: #f80;
+        }
+        
+        .log-entry.danger {
+            color: #f00;
+        }
+        
+        .log-entry.success {
+            color: #0f0;
+        }
+        
+        #game-over, #level-complete {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        #game-over h1 {
+            color: #f00;
+            font-size: 40px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #f00;
+        }
+        
+        #level-complete h1 {
+            color: #0f0;
+            font-size: 40px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #0f0;
+        }
+        
+        .result-info {
+            color: #0ff;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        
+        .game-btn {
+            padding: 10px 20px;
+            background-color: #090;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            margin: 10px;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        
+        .game-btn:hover {
+            background-color: #0b0;
+            transform: scale(1.05);
+        }
+        
+        #tutorial {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 101;
+        }
+        
+        #tutorial-content {
+            width: 80%;
+            max-height: 80%;
+            overflow-y: auto;
+            background-color: #112;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #0ff;
+        }
+        
+        #tutorial h2 {
+            color: #0ff;
+            margin-bottom: 15px;
+        }
+        
+        .tutorial-section {
+            margin-bottom: 15px;
+        }
+        
+        .tutorial-section h3 {
+            color: #0f0;
+            margin-bottom: 5px;
+        }
+        
+        .tutorial-image {
+            width: 100px;
+            height: 60px;
+            background-color: #224;
+            margin: 10px;
+            display: inline-block;
+            border: 1px solid #336;
+        }
+        
+        #progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 5px;
+            background-color: #0f0;
+            width: 0%;
+            transition: width 0.5s;
+        }
+        
+        .upgrade-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 20, 40, 0.95);
+            border: 2px solid #0ff;
+            border-radius: 10px;
+            padding: 20px;
+            z-index: 101;
+            width: 70%;
+            max-height: 80%;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .upgrade-menu h2 {
+            color: #0ff;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .upgrade-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #112;
+            transition: background-color 0.3s;
+        }
+        
+        .upgrade-item:hover {
+            background-color: #224;
+        }
+        
+        .upgrade-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #336;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-size: 20px;
+        }
+        
+        .upgrade-info {
+            flex-grow: 1;
+        }
+        
+        .upgrade-name {
+            font-weight: bold;
+            color: #0f0;
+        }
+        
+        .upgrade-description {
+            font-size: 12px;
+            color: #ccc;
+        }
+        
+        .upgrade-cost {
+            color: #ff0;
+            font-weight: bold;
+        }
+        
+        .upgrade-button {
+            padding: 5px 10px;
+            background-color: #060;
+            border: none;
+            color: #fff;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .upgrade-button:hover {
+            background-color: #090;
+        }
+        
+        .upgrade-button:disabled {
+            background-color: #333;
+            color: #777;
+            cursor: not-allowed;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        @keyframes rotate {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        
+        #notification {
+            position: absolute;
+            pointer-events: none;
+            font-weight: bold;
+            text-shadow: 0 0 3px black;
+            z-index: 30;
+            animation: float-up 1.5s forwards;
+        }
+        
+        @keyframes float-up {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
+        }
+        
+        .wave-indicator {
+            position: absolute;
+            top: 50px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #f00;
+            color: #f00;
+            z-index: 20;
+            animation: pulse-border 1s infinite alternate;
+        }
+        
+        @keyframes pulse-border {
+            from { border-color: #f00; }
+            to { border-color: #ff0; }
+        }
+        
+        .special-effect {
+            position: absolute;
+            pointer-events: none;
+            z-index: 25;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="server">
+            <div class="server-light"></div>
+            <div class="server-light"></div>
+            <div class="server-light"></div>
+        </div>
+        <div class="firewall"></div>
+        <div id="message"></div>
+        <div id="message-log"></div>
+        <div id="defense-panel">
+            <div class="defense-option selected" data-type="standard">标准防御 (5分)</div>
+            <div class="defense-option" data-type="rapid">快速反应防御 (15分)</div>
+            <div class="defense-option" data-type="area">区域防御 (25分)</div>
+            <div id="defense-info">标准防御：基础型防御点，有效拦截普通黑客</div>
+        </div>
+        <div id="game-over">
+            <h1>服务器被攻破！</h1>
+            <div class="result-info">坚持回合数: <span id="survived-waves">0</span></div>
+            <div class="result-info">总分数: <span id="final-score">0</span></div>
+            <div class="result-info">拦截黑客数: <span id="hackers-stopped">0</span></div>
+            <button class="game-btn" id="restart-btn">重新开始</button>
+            <button class="game-btn" id="tutorial-btn">查看教程</button>
+        </div>
+        <div id="level-complete">
+            <h1>关卡完成！</h1>
+            <div class="result-info">服务器安全度: <span id="remaining-security">0</span>%</div>
+            <div class="result-info">获得奖励分数: <span id="bonus-score">0</span></div>
+            <button class="game-btn" id="next-level-btn">前往下一关</button>
+            <button class="game-btn" id="upgrade-btn">升级系统</button>
+        </div>
+        <div id="tutorial">
+            <div id="tutorial-content">
+                <h2>数据防御 - 游戏教程</h2>
+                
+                <div class="tutorial-section">
+                    <h3>游戏目标</h3>
+                    <p>保护中央服务器不被黑客攻破，坚持尽可能多的波次攻击，获得高分！</p>
+                </div>
+                
+                <div class="tutorial-section">
+                    <h3>黑客类型</h3>
+                    <p><span style="color: #f00;">●</span> 普通黑客 - 速度中等，伤害较小</p>
+                    <p><span style="color: #f80;">●</span> 精英黑客 - 速度较快，伤害中等，更难被拦截</p>
+                    <p><span style="color: #f0f;">●</span> 黑客首领 - 速度慢，伤害巨大，需要多次攻击才能消灭</p>
+                </div>
+                
+                <div class="tutorial-section">
+                    <h3>防御系统</h3>
+                    <p><span style="color: #0f0;">●</span> 标准防御 - 基础防御点，成本低</p>
+                    <p><span style="color: #0ff;">●</span> 快速反应防御 - 攻击速度更快，范围小</p>
+                    <p><span style="color: #00f;">●</span> 区域防御 - 大范围防御，可同时攻击多个目标</p>
+                    <p>点击游戏区域放置防御点，使用右上角面板切换防御类型</p>
+                </div>
+                
+                <div class="tutorial-section">
+                    <h3>特殊功能</h3>
+                    <p>强化防火墙 - 减缓黑客移动速度</p>
+                    <p>安全扫描 - 随机清除黑客</p>
+                    <p>系统补丁 - 恢复服务器安全度</p>
+                    <p>紧急净化 - 消除屏幕上所有普通黑客</p>
+                    <p>数据加密 - 短时间内提高防御效果</p>
+                    <p>收集数据包 - 获取额外分数和升级点数</p>
+                </div>
+                
+                <div class="tutorial-section">
+                    <h3>波次系统</h3>
+                    <p>每个关卡有多个波次的黑客攻击</p>
+                    <p>波次之间有短暂休息时间</p>
+                    <p>完成所有波次后可以进入下一关</p>
+                </div>
+            </div>
+            <button class="game-btn" id="close-tutorial-btn">开始游戏</button>
+        </div>
+        <div id="upgrade-menu" class="upgrade-menu">
+            <h2>系统升级</h2>
+            <div id="upgrade-list"></div>
+            <button class="close-btn" id="close-upgrade-btn">✕</button>
+        </div>
+        <div id="progress-bar"></div>
+    </div>
+    
+    <div id="stats">
+        <div class="stat-box">
+            <div class="stat-icon">🔒</div>
+            <div id="level-display">安全等级: 1</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-icon">💰</div>
+            <div id="score-display">分数: 0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-icon">🛡️</div>
+            <div id="security-display">服务器安全: 100%</div>
+        </div>
+        <!-- 这里添加安全度进度条 -->
+        <div class="stat-box" style="width: 100%;">
+            <div id="security-bar" style="width: 100%; height: 10px; background-color: #0f0; border-radius: 5px;"></div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-icon">🌊</div>
+            <div id="wave-display">波次: 0/5</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-icon">⚡</div>
+            <div id="upgrade-display">升级点: 0</div>
+        </div>
+    </div>
+    
+    
+    <div id="controls">
+        <button class="control-btn" id="firewall-btn">
+            强化防火墙 (10分)
+            <div class="tooltip">增强防火墙，减缓所有黑客的移动速度</div>
+        </button>
+        <button class="control-btn" id="scan-btn">
+            安全扫描 (5分)
+            <div class="tooltip">执行安全扫描，随机清除一个黑客</div>
+        </button>
+        <button class="control-btn" id="patch-btn">
+            系统补丁 (15分)
+            <div class="tooltip">安装安全补丁，恢复服务器安全度</div>
+        </button>
+        <button class="control-btn" id="purge-btn">
+            紧急净化 (30分)
+            <div class="tooltip">清除屏幕上所有普通黑客</div>
+        </button>
+        <button class="control-btn" id="encrypt-btn">
+            数据加密 (20分)
+            <div class="tooltip">临时加强所有防御效果</div>
+        </button>
+        <button class="control-btn" id="upgrade-shop-btn">
+            升级商店
+            <div class="tooltip">打开升级商店，提升系统性能</div>
+        </button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const gameContainer = document.getElementById('game-container');
+            const server = document.getElementById('server');
+            const message = document.getElementById('message');
+            const messageLog = document.getElementById('message-log');
+            const levelDisplay = document.getElementById('level-display');
+            const scoreDisplay = document.getElementById('score-display');
+            const securityDisplay = document.getElementById('security-display');
+            const waveDisplay = document.getElementById('wave-display');
+            const upgradeDisplay = document.getElementById('upgrade-display');
+            const firewallBtn = document.getElementById('firewall-btn');
+            const scanBtn = document.getElementById('scan-btn');
+            const patchBtn = document.getElementById('patch-btn');
+            const purgeBtn = document.getElementById('purge-btn');
+            const encryptBtn = document.getElementById('encrypt-btn');
+            const upgradeShopBtn = document.getElementById('upgrade-shop-btn');
+            const gameOver = document.getElementById('game-over');
+            const levelComplete = document.getElementById('level-complete');
+            const restartBtn = document.getElementById('restart-btn');
+            const nextLevelBtn = document.getElementById('next-level-btn');
+            const upgradeBtn = document.getElementById('upgrade-btn');
+            const tutorialBtn = document.getElementById('tutorial-btn');
+            const tutorial = document.getElementById('tutorial');
+            const closeTutorialBtn = document.getElementById('close-tutorial-btn');
+            const upgradeMenu = document.getElementById('upgrade-menu');
+            const upgradeList = document.getElementById('upgrade-list');
+            const closeUpgradeBtn = document.getElementById('close-upgrade-btn');
+            const defensePanel = document.getElementById('defense-panel');
+            const defenseOptions = document.querySelectorAll('.defense-option');
+            const defenseInfo = document.getElementById('defense-info');
+            const progressBar = document.getElementById('progress-bar');
+            
+            let currentDefenseType = 'standard';
+            
+            // 游戏状态
+            let gameState = {
+                level: 1,
+                score: 0,
+                security: 100,
+                hackers: [],
+                defenses: [],
+                dataPackets: [],
+                hackerInterval: null,
+                gameLoop: null,
+                defenseLoop: null,
+                packetInterval: null,
+                wave: 0,
+                maxWaves: 5,
+                waveInProgress: false,
+                waveTimeout: null,
+                upgradePoints: 0,
+                hackersDefeated: 0,
+                eliteHackersDefeated: 0,
+                bossesDefeated: 0,
+                encryptionActive: false,
+                upgrades: {
+                    serverHealth: 0,
+                    serverRepair: 0,
+                    defenseRange: 0,
+                    defenseDamage: 0,
+                    defenseRate: 0,
+                    resourceGen: 0,
+                    packetValue: 0,
+                    eliteDefense: 0
+                }
+            };
+            
+            // 升级选项
+            const upgradeOptions = [
+                {
+                    id: 'serverHealth',
+                    name: '服务器强化',
+                    description: '增加服务器最大安全度',
+                    icon: '🔋',
+                    cost: function(level) { return 2 + level; },
+                    maxLevel: 5,
+                    effect: function(level) { return `最大安全度 +${level * 20}%`; }
+                },
+                {
+                    id: 'serverRepair',
+                    name: '自动修复系统',
+                    description: '服务器会自动缓慢修复',
+                    icon: '🔧',
+                    cost: function(level) { return 3 + level; },
+                    maxLevel: 3,
+                    effect: function(level) { return `每秒修复 ${level * 0.5}% 安全度`; }
+                },
+                {
+                    id: 'defenseRange',
+                    name: '增强防御范围',
+                    description: '增加所有防御点的范围',
+                    icon: '📡',
+                    cost: function(level) { return 2 + level; },
+                    maxLevel: 5,
+                    effect: function(level) { return `防御范围 +${level * 15}%`; }
+                },
+                {
+                    id: 'defenseDamage',
+                    name: '攻击强化',
+                    description: '增加防御点的攻击伤害',
+                    icon: '⚔️',
+                    cost: function(level) { return 3 + level; },
+                    maxLevel: 5,
+                    effect: function(level) { return `防御伤害 +${level * 25}%`; }
+                },
+                {
+                    id: 'defenseRate',
+                    name: '攻击速度',
+                    description: '提高防御点的攻击频率',
+                    icon: '⚡',
+                    cost: function(level) { return 2 + level * 2; },
+                    maxLevel: 3,
+                    effect: function(level) { return `攻击速度 +${level * 20}%`; }
+                },
+                {
+                    id: 'resourceGen',
+                    name: '资源生成',
+                    description: '随时间自动获得额外分数',
+                    icon: '💰',
+                    cost: function(level) { return 3 + level * 2; },
+                    maxLevel: 3,
+                    effect: function(level) { return `每秒获得 ${level * 0.5} 分`; }
+                },
+                {
+                    id: 'packetValue',
+                    name: '数据包增强',
+                    description: '增加数据包的价值',
+                    icon: '📦',
+                    cost: function(level) { return 1 + level; },
+                    maxLevel: 5,
+                    effect: function(level) { return `数据包价值 +${level * 25}%`; }
+                },
+                {
+                   id: 'eliteDefense',
+                     name: '精英防御',
+                     description: '防御点有几率升级为更强大的形态',
+                      icon: '💎',
+                     cost: function(level) { return 3 + level * 2; },
+                     maxLevel: 3,
+                 effect: function(level) { return `防御点有 ${level * 10}% 几率升级到下一级`; }
+                }
+            ];
+
+// 初始化游戏
+function initGame() {
+    gameState = {
+        level: 1,
+        score: 0,
+        security: 100,
+        hackers: [],
+        defenses: [],
+        dataPackets: [],
+        hackerInterval: null,
+        gameLoop: null,
+        defenseLoop: null,
+        packetInterval: null,
+        wave: 0,
+        maxWaves: 5,
+        waveInProgress: false,
+        waveTimeout: null,
+        upgradePoints: 0,
+        hackersDefeated: 0,
+        eliteHackersDefeated: 0,
+        bossesDefeated: 0,
+        encryptionActive: false,
+        upgrades: {
+            serverHealth: 0,
+            serverRepair: 0,
+            defenseRange: 0,
+            defenseDamage: 0,
+            defenseRate: 0,
+            resourceGen: 0,
+            packetValue: 0,
+            eliteDefense: 0
+        }
+    };
+    
+    updateDisplay();
+    clearElements();
+    startGame();
+}
+
+// 清除所有元素
+function clearElements() {
+    // 清除黑客
+    gameState.hackers.forEach(hacker => {
+        if (hacker.element) {
+            hacker.element.remove();
+        }
+    });
+    gameState.hackers = [];
+    
+    // 清除防御点
+    gameState.defenses.forEach(defense => {
+        if (defense.element) {
+            defense.element.remove();
+        }
+        if (defense.rangeElement) {
+            defense.rangeElement.remove();
+        }
+    });
+    gameState.defenses = [];
+    
+    // 清除数据包
+    gameState.dataPackets.forEach(packet => {
+        if (packet.element) {
+            packet.element.remove();
+        }
+    });
+    gameState.dataPackets = [];
+    
+    // 清除特效
+    document.querySelectorAll('.defense-effect, .special-effect, .wave-indicator, #notification').forEach(el => {
+        el.remove();
+    });
+}
+
+// 开始游戏
+function startGame() {
+    // 清除之前的间隔和计时器
+    clearInterval(gameState.hackerInterval);
+    clearInterval(gameState.gameLoop);
+    clearInterval(gameState.defenseLoop);
+    clearInterval(gameState.packetInterval);
+    clearTimeout(gameState.waveTimeout);
+    
+    // 初始化游戏循环
+    gameState.gameLoop = setInterval(gameLoop, 16);
+    gameState.defenseLoop = setInterval(defenseLoop, 1000);
+    
+    // 开始第一波
+    startWave();
+    
+    // 启动数据包生成
+    gameState.packetInterval = setInterval(generateDataPacket, 10000);
+    
+    // 如果有资源生成升级，启动资源生成
+    if (gameState.upgrades.resourceGen > 0) {
+        setInterval(() => {
+            addScore(0.5 * gameState.upgrades.resourceGen);
+        }, 1000);
+    }
+    
+    // 如果有服务器修复升级，启动自动修复
+    if (gameState.upgrades.serverRepair > 0) {
+        setInterval(() => {
+            if (gameState.security < 100 + (gameState.upgrades.serverHealth * 20)) {
+                gameState.security += 0.5 * gameState.upgrades.serverRepair;
+                if (gameState.security > 100 + (gameState.upgrades.serverHealth * 20)) {
+                    gameState.security = 100 + (gameState.upgrades.serverHealth * 20);
+                }
+                updateDisplay();
+            }
+        }, 1000);
+    }
+}
+
+// 主游戏循环
+function gameLoop() {
+    moveHackers();
+    updateDisplay();
+    
+    // 检查游戏结束条件
+    if (gameState.security <= 0) {
+        endGame();
+    }
+}
+
+// 防御循环
+function defenseLoop() {
+    gameState.defenses.forEach(defense => {
+        attackNearbyHackers(defense);
+    });
+}
+
+// 开始新一波
+function startWave() {
+    gameState.wave++;
+    if (gameState.wave > gameState.maxWaves) {
+        completeLevel();
+        return;
+    }
+    
+    gameState.waveInProgress = true;
+    updateDisplay();
+    showMessage(`第 ${gameState.wave} 波黑客攻击开始！`, 'warning');
+    
+    // 显示波次指示器
+    const waveIndicator = document.createElement('div');
+    waveIndicator.className = 'wave-indicator';
+    waveIndicator.textContent = `正在进行: 第 ${gameState.wave} 波`;
+    gameContainer.appendChild(waveIndicator);
+    
+    // 根据当前波次和级别确定生成黑客的频率和类型
+    const baseInterval = 2000 - (gameState.level * 100) - (gameState.wave * 150);
+    const interval = Math.max(baseInterval, 500);
+    
+    // 根据波次和级别确定黑客数量
+    const hackerCount = 5 + gameState.level + gameState.wave * 2;
+    let hackersSpawned = 0;
+    
+    // 生成黑客
+    gameState.hackerInterval = setInterval(() => {
+        if (hackersSpawned >= hackerCount) {
+            clearInterval(gameState.hackerInterval);
+            
+            // 波次结束后的休息时间
+            gameState.waveTimeout = setTimeout(() => {
+                gameState.waveInProgress = false;
+                waveIndicator.remove();
+                showMessage('黑客攻击暂停，准备下一波', 'success');
+                
+                // 短暂休息后开始下一波
+                gameState.waveTimeout = setTimeout(() => {
+                    startWave();
+                }, 10000);
+            }, 5000);
+            return;
+        }
+        
+        // 确定黑客类型
+        let hackerType = 'normal';
+        const rand = Math.random();
+        
+        if (gameState.level >= 3 && gameState.wave >= 3 && rand < 0.05) {
+            hackerType = 'boss';
+        } else if ((gameState.level >= 2 || gameState.wave >= 3) && rand < 0.2) {
+            hackerType = 'elite';
+        }
+        
+        spawnHacker(hackerType);
+        hackersSpawned++;
+    }, interval);
+}
+
+// 生成黑客
+function spawnHacker(type = 'normal') {
+    // 随机位置（屏幕边缘）
+    let x, y;
+    const edge = Math.floor(Math.random() * 4);
+    
+    switch (edge) {
+        case 0: // 上边缘
+            x = Math.random() * gameContainer.offsetWidth;
+            y = 0;
+            break;
+        case 1: // 右边缘
+            x = gameContainer.offsetWidth;
+            y = Math.random() * gameContainer.offsetHeight;
+            break;
+        case 2: // 下边缘
+            x = Math.random() * gameContainer.offsetWidth;
+            y = gameContainer.offsetHeight;
+            break;
+        case 3: // 左边缘
+            x = 0;
+            y = Math.random() * gameContainer.offsetHeight;
+            break;
+    }
+    
+    // 黑客属性
+    let health, speed, damage, className;
+    
+    switch (type) {
+        case 'elite':
+            health = 2 + Math.floor(gameState.level / 2);
+            speed = 0.7 + (gameState.level * 0.1);
+            damage = 5 + gameState.level;
+            className = 'hacker elite';
+            break;
+        case 'boss':
+            health = 5 + gameState.level * 2;
+            speed = 0.3 + (gameState.level * 0.05);
+            damage = 15 + gameState.level * 3;
+            className = 'hacker boss';
+            break;
+        default:
+            health = 1;
+            speed = 0.5 + (gameState.level * 0.08);
+            damage = 3 + Math.floor(gameState.level / 2);
+            className = 'hacker';
+    }
+    
+    // 创建黑客元素
+    const hackerElement = document.createElement('div');
+    hackerElement.className = className;
+    hackerElement.style.left = `${x}px`;
+    hackerElement.style.top = `${y}px`;
+    gameContainer.appendChild(hackerElement);
+    
+    // 添加到黑客数组
+    gameState.hackers.push({
+        element: hackerElement,
+        x: x,
+        y: y,
+        type: type,
+        health: health,
+        speed: speed,
+        damage: damage,
+        slowFactor: 1
+    });
+}
+
+// 移动黑客
+function moveHackers() {
+    const serverRect = server.getBoundingClientRect();
+    const containerRect = gameContainer.getBoundingClientRect();
+    
+    const serverCenterX = serverRect.left - containerRect.left + serverRect.width / 2;
+    const serverCenterY = serverRect.top - containerRect.top + serverRect.height / 2;
+    
+    gameState.hackers.forEach((hacker, index) => {
+        // 计算到服务器的方向
+        const dx = serverCenterX - hacker.x;
+        const dy = serverCenterY - hacker.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // 如果到达服务器
+        if (distance < 30) {
+            // 攻击服务器
+            gameState.security -= hacker.damage;
+            
+            // 创建攻击效果
+            createSpecialEffect(hacker.x, hacker.y, 'serverAttack');
+            
+            // 移除黑客
+            hacker.element.remove();
+            gameState.hackers.splice(index, 1);
+            
+            showMessage(`服务器遭受攻击！安全度 -${hacker.damage}`, 'danger');
+            return;
+        }
+        
+        // 移动朝向服务器
+        const moveSpeed = (hacker.speed / hacker.slowFactor) * (gameState.encryptionActive ? 0.7 : 1);
+        const moveX = (dx / distance) * moveSpeed;
+        const moveY = (dy / distance) * moveSpeed;
+        
+        hacker.x += moveX;
+        hacker.y += moveY;
+        
+        // 更新黑客位置
+        hacker.element.style.left = `${hacker.x}px`;
+        hacker.element.style.top = `${hacker.y}px`;
+        
+        // 慢慢恢复正常速度（如果被防火墙减速）
+        if (hacker.slowFactor > 1) {
+            hacker.slowFactor -= 0.01;
+            if (hacker.slowFactor < 1) {
+                hacker.slowFactor = 1;
+            }
+        }
+    });
+}
+
+// 防御点攻击附近的黑客
+function attackNearbyHackers(defense) {
+    if (gameState.hackers.length === 0) return;
+    
+    // 计算攻击间隔
+    const baseInterval = defense.baseInterval || 1000;
+    const attackInterval = baseInterval / (1 + (gameState.upgrades.defenseRate * 0.2));
+    
+    // 检查是否已准备好攻击
+    const now = Date.now();
+    if (now - defense.lastAttack < attackInterval) return;
+    
+    // 根据防御类型确定攻击范围和攻击数
+    let range = defense.range;
+    let maxTargets = defense.type === 'area' ? 3 : 1;
+    
+    // 应用防御范围升级
+    range *= (1 + (gameState.upgrades.defenseRange * 0.15));
+    
+    // 寻找范围内的黑客
+    const targets = [];
+    gameState.hackers.forEach(hacker => {
+        const dx = hacker.x - defense.x;
+        const dy = hacker.y - defense.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance <= range) {
+            targets.push({
+                hacker: hacker,
+                distance: distance
+            });
+        }
+    });
+    
+    // 按距离排序
+    targets.sort((a, b) => a.distance - b.distance);
+    
+    // 攻击最近的黑客
+    const attackedTargets = targets.slice(0, maxTargets);
+    if (attackedTargets.length > 0) {
+        attackedTargets.forEach(target => {
+            attackHacker(defense, target.hacker);
+        });
+        defense.lastAttack = now;
+    }
+}
+
+// 攻击黑客
+function attackHacker(defense, hacker) {
+    // 计算基础伤害
+    let damage = defense.damage || 1;
+    
+    // 应用伤害升级
+    damage *= (1 + (gameState.upgrades.defenseDamage * 0.25));
+    
+    // 如果加密激活，额外增加伤害
+    if (gameState.encryptionActive) {
+        damage *= 1.5;
+    }
+    
+    // 创建攻击效果
+    const effect = document.createElement('div');
+    effect.className = 'defense-effect';
+    effect.style.left = `${hacker.x - 15}px`;
+    effect.style.top = `${hacker.y - 15}px`;
+    gameContainer.appendChild(effect);
+    
+    // 设置效果颜色
+    if (defense.type === 'rapid') {
+        effect.style.backgroundColor = 'rgba(0, 255, 255, 0.7)';
+    } else if (defense.type === 'area') {
+        effect.style.backgroundColor = 'rgba(0, 0, 255, 0.7)';
+    }
+    
+    // 一段时间后移除效果
+    setTimeout(() => {
+        effect.remove();
+    }, 500);
+    
+    // 降低黑客生命值
+    hacker.health -= damage;
+    
+    // 显示伤害数字
+    showNotification(Math.round(damage), hacker.x, hacker.y, '#0f0');
+    
+    // 如果黑客被消灭
+    if (hacker.health <= 0) {
+        // 记录击败数量
+        gameState.hackersDefeated++;
+        if (hacker.type === 'elite') {
+            gameState.eliteHackersDefeated++;
+        } else if (hacker.type === 'boss') {
+            gameState.bossesDefeated++;
+        }
+        
+        // 奖励分数
+        let scoreBonus = 0;
+        switch (hacker.type) {
+            case 'elite':
+                scoreBonus = 15 + gameState.level * 2;
+                break;
+            case 'boss':
+                scoreBonus = 50 + gameState.level * 5;
+                break;
+            default:
+                scoreBonus = 5 + Math.floor(gameState.level / 2);
+        }
+        
+        // 添加分数
+        addScore(scoreBonus);
+        
+        // 显示得分
+        showNotification(`+${scoreBonus}`, hacker.x, hacker.y, '#ff0');
+        
+        // 移除黑客
+        const index = gameState.hackers.indexOf(hacker);
+        if (index !== -1) {
+            hacker.element.remove();
+            gameState.hackers.splice(index, 1);
+        }
+        
+        // 添加升级点数
+        if (hacker.type === 'elite' || hacker.type === 'boss') {
+            addUpgradePoints(1);
+        }
+        
+        // 有几率掉落数据包
+        if (Math.random() < 0.3) {
+            createDataPacket(hacker.x, hacker.y);
+        }
+    }
+}
+
+// 强化防火墙
+function enhanceFirewall() {
+    const cost = 10;
+    if (gameState.score < cost) {
+        showMessage('分数不足，无法强化防火墙', 'warning');
+        return;
+    }
+    
+    addScore(-cost);
+    showMessage('防火墙已强化，黑客移动减缓', 'success');
+    
+    // 减缓所有黑客速度
+    gameState.hackers.forEach(hacker => {
+        hacker.slowFactor = 2;
+    });
+    
+    // 视觉效果
+    const firewall = document.querySelector('.firewall');
+    firewall.style.borderColor = '#00f';
+    firewall.style.animation = 'rotate 10s linear infinite';
+    
+    setTimeout(() => {
+        firewall.style.borderColor = '#0ff';
+        firewall.style.animation = 'rotate 20s linear infinite';
+    }, 10000);
+}
+
+// 安全扫描
+function securityScan() {
+    const cost = 5;
+    if (gameState.score < cost) {
+        showMessage('分数不足，无法执行安全扫描', 'warning');
+        return;
+    }
+    
+    if (gameState.hackers.length === 0) {
+        showMessage('没有检测到黑客', 'warning');
+        return;
+    }
+    
+    addScore(-cost);
+    
+    // 随机选择一个黑客
+    const index = Math.floor(Math.random() * gameState.hackers.length);
+    const hacker = gameState.hackers[index];
+    
+    // 创建扫描效果
+    createSpecialEffect(hacker.x, hacker.y, 'scan');
+    
+    setTimeout(() => {
+        if (gameState.hackers.indexOf(hacker) !== -1) {
+            hacker.element.remove();
+            gameState.hackers.splice(index, 1);
+            showMessage('安全扫描成功清除一个黑客', 'success');
+            
+            // 奖励
+            if (hacker.type === 'boss') {
+                addScore(10);
+                addUpgradePoints(1);
+            }
+        }
+    }, 500);
+}
+
+// 系统补丁
+function systemPatch() {
+    const cost = 15;
+    if (gameState.score < cost) {
+        showMessage('分数不足，无法安装系统补丁', 'warning');
+        return;
+    }
+    
+    addScore(-cost);
+    
+    // 恢复安全度
+    const maxSecurity = 100 + (gameState.upgrades.serverHealth * 20);
+    const repairAmount = 20 + gameState.level * 2;
+    gameState.security += repairAmount;
+    
+    if (gameState.security > maxSecurity) {
+        gameState.security = maxSecurity;
+    }
+    
+    showMessage(`系统补丁已安装，服务器安全度 +${repairAmount}`, 'success');
+    
+    // 视觉效果
+    server.style.boxShadow = '0 0 30px #0f0';
+    setTimeout(() => {
+        server.style.boxShadow = '0 0 10px #0f0';
+    }, 1000);
+}
+
+// 紧急净化
+function emergencyPurge() {
+    const cost = 30;
+    if (gameState.score < cost) {
+        showMessage('分数不足，无法执行紧急净化', 'warning');
+        return;
+    }
+    
+    addScore(-cost);
+    
+    // 清除所有普通黑客
+    let removed = 0;
+    for (let i = gameState.hackers.length - 1; i >= 0; i--) {
+        if (gameState.hackers[i].type === 'normal') {
+            createSpecialEffect(gameState.hackers[i].x, gameState.hackers[i].y, 'purge');
+            gameState.hackers[i].element.remove();
+            gameState.hackers.splice(i, 1);
+            removed++;
+        }
+    }
+    
+    if (removed > 0) {
+        showMessage(`紧急净化已执行，清除了 ${removed} 个普通黑客`, 'success');
+    } else {
+        showMessage('没有检测到普通黑客', 'warning');
+    }
+}
+
+// 数据加密
+function dataEncryption() {
+    const cost = 20;
+    if (gameState.score < cost) {
+        showMessage('分数不足，无法执行数据加密', 'warning');
+        return;
+    }
+    
+    if (gameState.encryptionActive) {
+        showMessage('数据加密已经处于激活状态', 'warning');
+        return;
+    }
+    
+    addScore(-cost);
+    gameState.encryptionActive = true;
+    
+    showMessage('数据加密已激活，防御效果提升', 'success');
+    
+    // 视觉效果
+    gameState.defenses.forEach(defense => {
+        defense.element.style.boxShadow = '0 0 15px #ff0';
+    });
+    
+    // 持续30秒
+    setTimeout(() => {
+        gameState.encryptionActive = false;
+        showMessage('数据加密效果已结束', 'warning');
+        
+        gameState.defenses.forEach(defense => {
+            if (defense.type === 'standard') {
+                defense.element.style.boxShadow = '';
+            } else if (defense.type === 'rapid') {
+                defense.element.style.boxShadow = '0 0 10px #0ff';
+            } else if (defense.type === 'area') {
+                defense.element.style.boxShadow = '0 0 10px #00f';
+            }
+        });
+    }, 30000);
+}
+
+// 创建数据包
+function createDataPacket(x, y) {
+    const packetElement = document.createElement('div');
+    packetElement.className = 'data-packet';
+    
+    // 如果没有指定位置，随机生成
+    if (x === undefined || y === undefined) {
+        x = Math.random() * (gameContainer.offsetWidth - 50) + 25;
+        y = Math.random() * (gameContainer.offsetHeight - 50) + 25;
+    }
+    
+    packetElement.style.left = `${x}px`;
+    packetElement.style.top = `${y}px`;
+    gameContainer.appendChild(packetElement);
+    
+    const packet = {
+        element: packetElement,
+        x: x,
+        y: y,
+        value: 5 * (1 + (gameState.upgrades.packetValue * 0.25)),
+        collected: false
+    };
+    
+    gameState.dataPackets.push(packet);
+    
+    // 点击数据包收集
+    packetElement.addEventListener('click', () => {
+        collectDataPacket(packet);
+    });
+    
+    // 一段时间后消失
+    setTimeout(() => {
+        if (gameState.dataPackets.indexOf(packet) !== -1 && !packet.collected) {
+            const index = gameState.dataPackets.indexOf(packet);
+            if (index !== -1) {
+                packet.element.remove();
+                gameState.dataPackets.splice(index, 1);
+            }
+        }
+    }, 15000);
+}
+
+// 随机生成数据包
+function generateDataPacket() {
+    // 只有在波次进行中才生成数据包
+    if (gameState.waveInProgress) {
+        createDataPacket();
+    }
+}
+
+// 收集数据包
+function collectDataPacket(packet) {
+    if (packet.collected) return;
+    
+    packet.collected = true;
+    packet.element.remove();
+    
+    // 移除数据包
+    const index = gameState.dataPackets.indexOf(packet);
+    if (index !== -1) {
+        gameState.dataPackets.splice(index, 1);
+    }
+    
+    // 奖励分数
+    addScore(packet.value);
+    
+    // 视觉效果
+    showNotification(`+${Math.round(packet.value)}`, packet.x, packet.y, '#0ff');
+    
+    // 有几率获得升级点
+    if (Math.random() < 0.3) {
+        addUpgradePoints(1);
+        showNotification('+1 升级点', packet.x, packet.y + 20, '#ff0');
+    }
+}
+
+// 放置防御点
+function placeDefense(x, y) {
+    // 确定成本
+    let cost, type, range, damage, attackInterval;
+    
+    switch (currentDefenseType) {
+        case 'rapid':
+            cost = 15;
+            range = 80;
+            damage = 0.8;
+            attackInterval = 500;
+            break;
+        case 'area':
+            cost = 25;
+            range = 120;
+            damage = 0.6;
+            attackInterval = 1200;
+            break;
+        default: // standard
+            cost = 5;
+            range = 100;
+            damage = 1;
+            attackInterval = 1000;
+    }
+    
+    // 检查是否有足够分数
+    if (gameState.score < cost) {
+        showMessage(`分数不足，无法放置 ${getDefenseTypeName(currentDefenseType)}`, 'warning');
+        return;
+    }
+    
+    // 检查是否与其他防御点太近
+    for (const defense of gameState.defenses) {
+        const dx = defense.x - x;
+        const dy = defense.y - y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < 40) {
+            showMessage('防御点放置太近，请选择其他位置', 'warning');
+            return;
+        }
+    }
+    
+    addScore(-cost);
+    
+    // 创建防御点元素
+    const defenseElement = document.createElement('div');
+    defenseElement.className = 'defense';
+    defenseElement.style.left = `${x - 7.5}px`;
+    defenseElement.style.top = `${y - 7.5}px`;
+    
+    // 根据类型设置样式
+    if (currentDefenseType === 'rapid') {
+        defenseElement.classList.add('tier2');
+    } else if (currentDefenseType === 'area') {
+        defenseElement.classList.add('tier3');
+    }
+    
+    gameContainer.appendChild(defenseElement);
+    
+    // 创建范围指示器
+    const rangeElement = document.createElement('div');
+    rangeElement.className = 'defense-range';
+    rangeElement.style.left = `${x - range}px`;
+    rangeElement.style.top = `${y - range}px`;
+    rangeElement.style.width = `${range * 2}px`;
+    rangeElement.style.height = `${range * 2}px`;
+    gameContainer.appendChild(rangeElement);
+    
+    // 显示/隐藏范围指示器
+    defenseElement.addEventListener('mouseover', () => {
+        rangeElement.style.display = 'block';
+    });
+    
+    defenseElement.addEventListener('mouseout', () => {
+        rangeElement.style.display = 'none';
+    });
+    
+    // 默认隐藏范围指示器
+    rangeElement.style.display = 'none';
+    
+    // 精英防御升级几率
+    let tier = (currentDefenseType === 'rapid') ? 2 : (currentDefenseType === 'area' ? 3 : 1);
+    if (tier < 3 && gameState.upgrades.eliteDefense > 0) {
+        const upgradeChance = gameState.upgrades.eliteDefense * 0.1;
+        if (Math.random() < upgradeChance) {
+            tier += 1;
+            if (tier === 2) {
+                defenseElement.classList.add('tier2');
+                defenseElement.classList.remove('tier3');
+                damage *= 1.2;
+                attackInterval *= 0.9;
+                showNotification('升级!', x, y, '#0ff');
+            } else if (tier === 3) {
+                defenseElement.classList.add('tier3');
+                defenseElement.classList.remove('tier2');
+                damage *= 1.5;
+                range *= 1.2;
+                showNotification('精英升级!', x, y, '#00f');
+            }
+        }
+    }
+    
+    // 添加到防御数组
+    gameState.defenses.push({
+        element: defenseElement,
+        rangeElement: rangeElement,
+        x: x,
+        y: y,
+        type: currentDefenseType,
+        range: range,
+        damage: damage,
+        baseInterval: attackInterval,
+        lastAttack: Date.now()
+    });
+    
+    showMessage(`已放置 ${getDefenseTypeName(currentDefenseType)}`, 'success');
+}
+
+// 获取防御类型名称
+function getDefenseTypeName(type) {
+    switch (type) {
+        case 'rapid':
+            return '快速反应防御';
+        case 'area':
+            return '区域防御';
+        default:
+            return '标准防御';
+    }
+}
+
+// 创建特殊效果
+function createSpecialEffect(x, y, type) {
+    const effect = document.createElement('div');
+    effect.className = 'special-effect';
+    effect.style.left = `${x - 20}px`;
+    effect.style.top = `${y - 20}px`;
+    
+    switch (type) {
+        case 'scan':
+            effect.style.width = '40px';
+            effect.style.height = '40px';
+            effect.style.border = '2px solid #0ff';
+            effect.style.borderRadius = '50%';
+            effect.style.animation = 'expand 0.5s forwards';
+            break;
+        case 'purge':
+            effect.style.width = '30px';
+            effect.style.height = '30px';
+            effect.style.backgroundColor = 'rgba(255, 0, 0, 0.7)';
+            effect.style.borderRadius = '50%';
+            effect.style.animation = 'pulse 0.5s forwards';
+            break;
+        case 'serverAttack':
+            effect.style.width = '40px';
+            effect.style.height = '40px';
+            effect.style.backgroundColor = 'rgba(255, 50, 50, 0.7)';
+            effect.style.borderRadius = '50%';
+            effect.style.animation = 'flash 0.5s forwards';
+            break;
+    }
+    
+    gameContainer.appendChild(effect);
+    
+    // 一段时间后移除效果
+    setTimeout(() => {
+        effect.remove();
+    }, 1000);
+}
+
+// 显示通知
+function showNotification(text, x, y, color = '#fff') {
+    const notification = document.createElement('div');
+    notification.className = 'floating-notification';
+    notification.textContent = text;
+    notification.style.left = `${x}px`;
+    notification.style.top = `${y}px`;
+    notification.style.color = color;
+    gameContainer.appendChild(notification);
+    
+    // 动画效果
+    setTimeout(() => {
+        notification.style.transform = 'translateY(-30px)';
+        notification.style.opacity = '0';
+    }, 100);
+    
+    // 移除通知
+    setTimeout(() => {
+        notification.remove();
+    }, 1000);
+}
+
+// 显示消息
+function showMessage(text, type = 'info') {
+    const notification = document.createElement('div');
+    notification.id = 'notification';
+    notification.className = `notification ${type}`;
+    notification.textContent = text;
+    
+    const existing = document.getElementById('notification');
+    if (existing) {
+        existing.remove();
+    }
+    
+    gameContainer.appendChild(notification);
+    
+    // 自动消失
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            notification.remove();
+        }, 500);
+    }, 3000);
+}
+
+// 添加分数
+function addScore(amount) {
+    gameState.score += amount;
+    if (gameState.score < 0) gameState.score = 0;
+    updateDisplay();
+}
+
+// 添加升级点数
+function addUpgradePoints(amount) {
+    gameState.upgradePoints += amount;
+    updateDisplay();
+}
+
+// 完成关卡
+function completeLevel() {
+    clearInterval(gameState.hackerInterval);
+    clearTimeout(gameState.waveTimeout);
+    
+    // 奖励
+    const bonusPoints = 5 + gameState.level;
+    gameState.upgradePoints += bonusPoints;
+    
+    showMessage(`恭喜！您完成了第 ${gameState.level} 关！获得 ${bonusPoints} 个升级点`, 'success');
+    
+    // 升级到下一关
+    gameState.level++;
+    gameState.wave = 0;
+    gameState.maxWaves = 5 + Math.floor(gameState.level / 2);
+    
+    // 保留当前防御点和升级
+    setTimeout(() => {
+        // 清除所有黑客和数据包
+        gameState.hackers.forEach(hacker => {
+            if (hacker.element) {
+                hacker.element.remove();
+            }
+        });
+        gameState.hackers = [];
+        
+        gameState.dataPackets.forEach(packet => {
+            if (packet.element) {
+                packet.element.remove();
+            }
+        });
+        gameState.dataPackets = [];
+        
+        startWave();
+    }, 5000);
+}
+
+// 游戏结束
+function endGame() {
+    // 清除所有间隔
+    clearInterval(gameState.hackerInterval);
+    clearInterval(gameState.gameLoop);
+    clearInterval(gameState.defenseLoop);
+    clearInterval(gameState.packetInterval);
+    clearTimeout(gameState.waveTimeout);
+    
+    // 显示游戏结束消息
+    showMessage(`游戏结束！您坚持到了第 ${gameState.level} 关，第 ${gameState.wave} 波`, 'danger');
+    
+    // 显示最终统计
+    const statsHtml = `
+        <div class="game-over">
+            <h2>游戏结束</h2>
+            <p>关卡: ${gameState.level}</p>
+            <p>得分: ${Math.round(gameState.score)}</p>
+            <p>击败黑客: ${gameState.hackersDefeated}</p>
+            <p>击败精英黑客: ${gameState.eliteHackersDefeated}</p>
+            <p>击败首领: ${gameState.bossesDefeated}</p>
+            <button id="restart-button">重新开始</button>
+        </div>
+    `;
+    
+    const statsEl = document.createElement('div');
+    statsEl.className = 'stats-overlay';
+    statsEl.innerHTML = statsHtml;
+    document.body.appendChild(statsEl);
+    
+    // 重新开始按钮
+    document.getElementById('restart-button').addEventListener('click', () => {
+        statsEl.remove();
+        initGame();
+    });
+}
+
+// 更新显示
+function updateDisplay() {
+    document.getElementById('level-display').textContent = `关卡: ${gameState.level}`;
+    document.getElementById('wave-display').textContent = `波次: ${gameState.wave}/${gameState.maxWaves}`;
+    document.getElementById('score-display').textContent = `分数: ${Math.round(gameState.score)}`;
+    document.getElementById('security-display').textContent = `安全度: ${Math.round(gameState.security)}`;
+    document.getElementById('upgrade-display').textContent = `升级点: ${gameState.upgradePoints}`;
+    
+    // 更新安全度条
+    const percentage = (gameState.security / (100 + (gameState.upgrades.serverHealth * 20))) * 100;
+    document.getElementById('security-bar').style.width = `${percentage}%`;
+    
+    // 根据安全度更改颜色
+    if (percentage > 60) {
+        document.getElementById('security-bar').style.backgroundColor = '#0f0';
+    } else if (percentage > 30) {
+        document.getElementById('security-bar').style.backgroundColor = '#ff0';
+    } else {
+        document.getElementById('security-bar').style.backgroundColor = '#f00';
+    }
+}
+
+// 执行升级
+function applyUpgrade(upgradeId) {
+    // 获取升级对象
+    const upgrade = upgrades.find(u => u.id === upgradeId);
+    if (!upgrade) return;
+    
+    // 当前等级
+    const currentLevel = gameState.upgrades[upgradeId] || 0;
+    
+    // 检查是否已达到最大等级
+    if (currentLevel >= upgrade.maxLevel) {
+        showMessage(`${upgrade.name} 已达到最大等级`, 'warning');
+        return;
+    }
+    
+    // 计算成本
+    const cost = typeof upgrade.cost === 'function' ? 
+        upgrade.cost(currentLevel) : upgrade.cost;
+    
+    // 检查是否有足够的升级点
+    if (gameState.upgradePoints < cost) {
+        showMessage(`升级点不足，无法升级 ${upgrade.name}`, 'warning');
+        return;
+    }
+    
+    // 应用升级
+    gameState.upgradePoints -= cost;
+    gameState.upgrades[upgradeId] = currentLevel + 1;
+    
+    showMessage(`已升级 ${upgrade.name} 到 ${currentLevel + 1} 级`, 'success');
+    updateDisplay();
+    updateUpgradeButtons();
+}
+
+// Completing the updateUpgradeButtons function
+function updateUpgradeButtons() {
+    upgradeOptions.forEach(upgrade => {
+        const button = document.getElementById(`upgrade-${upgrade.id}`);
+        if (button) {
+            const currentLevel = gameState.upgrades[upgrade.id] || 0;
+            const cost = typeof upgrade.cost === 'function' ? 
+                upgrade.cost(currentLevel) : upgrade.cost;
+            
+            // 更新按钮文本
+            button.textContent = `${upgrade.name} (${currentLevel}/${upgrade.maxLevel}) - ${cost} 点`;
+            
+            // 更新效果描述
+            const effectElement = document.getElementById(`effect-${upgrade.id}`);
+            if (effectElement) {
+                const effect = typeof upgrade.effect === 'function' ? 
+                    upgrade.effect(currentLevel + 1) : upgrade.effect;
+                effectElement.textContent = effect;
+            }
+            
+            // 禁用已达到最大等级或点数不足的按钮
+            if (currentLevel >= upgrade.maxLevel || gameState.upgradePoints < cost) {
+                button.disabled = true;
+                button.classList.add('disabled');
+            } else {
+                button.disabled = false;
+                button.classList.remove('disabled');
+            }
+        }
+    });
+}
+
+// 显示升级菜单
+function showUpgradeMenu() {
+    upgradeMenu.style.display = 'block';
+    
+    // 清除现有内容
+    upgradeList.innerHTML = '';
+    
+    // 添加升级选项
+    upgradeOptions.forEach(upgrade => {
+        const currentLevel = gameState.upgrades[upgrade.id] || 0;
+        const cost = typeof upgrade.cost === 'function' ? 
+            upgrade.cost(currentLevel) : upgrade.cost;
+        const effect = typeof upgrade.effect === 'function' ? 
+            upgrade.effect(currentLevel + 1) : upgrade.effect;
+        
+        const item = document.createElement('div');
+        item.className = 'upgrade-item';
+        
+        const header = document.createElement('div');
+        header.className = 'upgrade-header';
+        
+        const icon = document.createElement('span');
+        icon.className = 'upgrade-icon';
+        icon.textContent = upgrade.icon;
+        
+        const title = document.createElement('h3');
+        title.textContent = upgrade.name;
+        
+        const level = document.createElement('span');
+        level.className = 'upgrade-level';
+        level.textContent = `${currentLevel}/${upgrade.maxLevel}`;
+        
+        header.appendChild(icon);
+        header.appendChild(title);
+        header.appendChild(level);
+        
+        const desc = document.createElement('p');
+        desc.className = 'upgrade-desc';
+        desc.textContent = upgrade.description;
+        
+        const effectElem = document.createElement('p');
+        effectElem.className = 'upgrade-effect';
+        effectElem.id = `effect-${upgrade.id}`;
+        effectElem.textContent = effect;
+        
+        const button = document.createElement('button');
+        button.id = `upgrade-${upgrade.id}`;
+        button.className = 'button';
+        button.textContent = `升级 - ${cost} 点`;
+        
+        // 禁用已达到最大等级或点数不足的按钮
+        if (currentLevel >= upgrade.maxLevel || gameState.upgradePoints < cost) {
+            button.disabled = true;
+            button.classList.add('disabled');
+        }
+        
+        // 点击升级
+        button.addEventListener('click', () => {
+            applyUpgrade(upgrade.id);
+        });
+        
+        item.appendChild(header);
+        item.appendChild(desc);
+        item.appendChild(effectElem);
+        item.appendChild(button);
+        
+        upgradeList.appendChild(item);
+    });
+}
+
+// 关闭升级菜单
+function closeUpgradeMenu() {
+    upgradeMenu.style.display = 'none';
+}
+
+// 显示防御类型选择面板
+function toggleDefensePanel() {
+    if (defensePanel.style.display === 'flex') {
+        defensePanel.style.display = 'none';
+    } else {
+        defensePanel.style.display = 'flex';
+        updateDefenseInfo();
+    }
+}
+
+// 更新防御信息
+function updateDefenseInfo() {
+    let name, desc, cost;
+    
+    switch (currentDefenseType) {
+        case 'rapid':
+            name = '快速反应防御';
+            desc = '更快的攻击速度，但范围和伤害略低';
+            cost = '15分';
+            break;
+        case 'area':
+            name = '区域防御';
+            desc = '可以同时攻击多个目标，范围大但攻击频率低';
+            cost = '25分';
+            break;
+        default:
+            name = '标准防御';
+            desc = '基础防御单位，性价比高';
+            cost = '5分';
+    }
+    
+    defenseInfo.innerHTML = `
+        <h3>${name}</h3>
+        <p>${desc}</p>
+        <p>成本: ${cost}</p>
+    `;
+}
+
+// 切换防御类型
+function setDefenseType(type) {
+    currentDefenseType = type;
+    defenseOptions.forEach(option => {
+        option.classList.remove('selected');
+    });
+    document.getElementById(`defense-${type}`).classList.add('selected');
+    updateDefenseInfo();
+}
+
+// 显示教程
+function showTutorial() {
+    tutorial.style.display = 'block';
+}
+
+// 关闭教程
+function closeTutorial() {
+    tutorial.style.display = 'none';
+}
+
+// 初始设置
+window.onload = function() {
+    // 设置游戏容器尺寸
+    gameContainer.style.width = `${window.innerWidth * 0.95}px`;
+    gameContainer.style.height = `${window.innerHeight * 0.80}px`;
+    
+    // 设置服务器位置
+    server.style.left = `${gameContainer.offsetWidth / 2 - server.offsetWidth / 2}px`;
+    server.style.top = `${gameContainer.offsetHeight / 2 - server.offsetHeight / 2}px`;
+    
+    // 添加防御类型选择事件
+    defenseOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            const type = option.getAttribute('data-type');
+            setDefenseType(type);
+        });
+    });
+    
+    // 添加游戏控制按钮事件
+    firewallBtn.addEventListener('click', enhanceFirewall);
+    scanBtn.addEventListener('click', securityScan);
+    patchBtn.addEventListener('click', systemPatch);
+    purgeBtn.addEventListener('click', emergencyPurge);
+    encryptBtn.addEventListener('click', dataEncryption);
+    upgradeShopBtn.addEventListener('click', showUpgradeMenu);
+    closeUpgradeBtn.addEventListener('click', closeUpgradeMenu);
+    restartBtn.addEventListener('click', initGame);
+    nextLevelBtn.addEventListener('click', startWave);
+    upgradeBtn.addEventListener('click', toggleDefensePanel);
+    tutorialBtn.addEventListener('click', showTutorial);
+    closeTutorialBtn.addEventListener('click', closeTutorial);
+    
+    // 点击游戏区域放置防御
+    gameContainer.addEventListener('click', (e) => {
+        // 忽略在其他元素上的点击
+        if (e.target !== gameContainer && !e.target.classList.contains('game-container')) {
+            return;
+        }
+        
+        // 获取点击位置相对于游戏容器的坐标
+        const rect = gameContainer.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // 放置防御
+        placeDefense(x, y);
+    });
+    
+    // 加载教程提示
+    setTimeout(showTutorial, 1000);
+    
+    // 开始游戏
+    initGame();
+};
+
+// 添加键盘快捷键
+document.addEventListener('keydown', (e) => {
+    switch(e.key) {
+        case '1':
+            setDefenseType('standard');
+            break;
+        case '2':
+            setDefenseType('rapid');
+            break;
+        case '3':
+            setDefenseType('area');
+            break;
+        case 'f':
+            enhanceFirewall();
+            break;
+        case 's':
+            securityScan();
+            break;
+        case 'p':
+            systemPatch();
+            break;
+        case 'c':
+            emergencyPurge();
+            break;
+        case 'e':
+            dataEncryption();
+            break;
+        case 'u':
+            showUpgradeMenu();
+            break;
+        case 'Escape':
+            closeUpgradeMenu();
+            closeTutorial();
+            defensePanel.style.display = 'none';
+            break;
+        case 'h':
+            if (tutorial.style.display === 'block') {
+                closeTutorial();
+            } else {
+                showTutorial();
+            }
+            break;
+    }
+});
+
+// 处理窗口大小变化
+window.addEventListener('resize', () => {
+    gameContainer.style.width = `${window.innerWidth * 0.95}px`;
+    gameContainer.style.height = `${window.innerHeight * 0.80}px`;
+    
+    // 重新定位服务器
+    server.style.left = `${gameContainer.offsetWidth / 2 - server.offsetWidth / 2}px`;
+    server.style.top = `${gameContainer.offsetHeight / 2 - server.offsetHeight / 2}px`;
+});
+
+// 防止右键菜单
+// window.addEventListener('contextmenu', (e) => {
+//     e.preventDefault();
+// });
+
+// 防止拖动图片
+// document.addEventListener('dragstart', (e) => {
+//     e.preventDefault();
+// });
+ });
+
+    </script>
+</body>
+</html>
